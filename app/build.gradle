@@ -35,4 +35,5 @@ dependencies {
 
     implementation 'com.google.firebase:firebase-core:16.0.1'
     implementation 'com.google.firebase:firebase-ml-vision:16.0.0'
+    implementation 'com.jakewharton.timber:timber:4.7.1'
 }
