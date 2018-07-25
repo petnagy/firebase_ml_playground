@@ -23,5 +23,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun startFirebaseLocalMl() {
         Timber.d("Start Local ML")
+        startActivity(Intent(this@MainActivity, LocalMlActivity::class.java))
     }
 }

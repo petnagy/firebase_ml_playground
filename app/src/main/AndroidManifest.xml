@@ -13,6 +13,11 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:name=".ProjectApplication">
+
+        <meta-data
+            android:name="com.google.firebase.ml.vision.DEPENDENCIES"
+            android:value="label, ocr, face, barcode" />
+
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -22,6 +27,7 @@
         </activity>
 
         <activity android:name=".RemoteMlActivity" />
+        <activity android:name=".LocalMlActivity" />
     </application>
 
 </manifest>
