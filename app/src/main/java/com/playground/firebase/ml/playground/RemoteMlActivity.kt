@@ -25,7 +25,7 @@ import com.google.firebase.ml.vision.cloud.text.FirebaseVisionCloudText
 class RemoteMlActivity : AppCompatActivity() {
 
     companion object {
-        const val CAMERA_PERMisSION_REQUEST_CODE = 1234
+        const val CAMERA_PERMISSION_REQUEST_CODE = 1234
         const val CAMERA_REQUEST_CODE = 34242
     }
 
@@ -39,7 +39,7 @@ class RemoteMlActivity : AppCompatActivity() {
 
     private fun checkAndLaunchCamera() {
         if (ContextCompat.checkSelfPermission(this, CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(CAMERA, WRITE_EXTERNAL_STORAGE), CAMERA_PERMisSION_REQUEST_CODE)
+            ActivityCompat.requestPermissions(this, arrayOf(CAMERA, WRITE_EXTERNAL_STORAGE), CAMERA_PERMISSION_REQUEST_CODE)
         } else {
             launchCamera()
         }
@@ -48,7 +48,7 @@ class RemoteMlActivity : AppCompatActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if (requestCode == CAMERA_PERMisSION_REQUEST_CODE) {
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
                     && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                 launchCamera()
