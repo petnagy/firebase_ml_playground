@@ -16,6 +16,10 @@ import android.support.v7.app.AppCompatActivity
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
+import com.google.firebase.ml.vision.FirebaseVision
+import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetector
+import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import kotlinx.android.synthetic.main.camera_layout.*
 import timber.log.Timber
 
@@ -34,6 +38,8 @@ class CameraActivity : AppCompatActivity() {
     private var session: CameraCaptureSession? = null
     private var cameraId: String = ""
     private var imageReader: ImageReader? = null
+    private lateinit var detector: FirebaseVisionFaceDetector
+    private var captureInProgress: Boolean = false
 
     private val textureListener = object: TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture?, width: Int, height: Int) {
@@ -75,6 +81,15 @@ class CameraActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.camera_layout)
         texture.surfaceTextureListener = textureListener
+
+        val options = FirebaseVisionFaceDetectorOptions.Builder()
+                        .setModeType(FirebaseVisionFaceDetectorOptions.FAST_MODE)
+                        .setLandmarkType(FirebaseVisionFaceDetectorOptions.NO_LANDMARKS)
+                        .setClassificationType(FirebaseVisionFaceDetectorOptions.NO_CLASSIFICATIONS)
+                        .setMinFaceSize(0.15f)
+                        .setTrackingEnabled(true)
+                        .build()
+        detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
     }
 
     private fun startBackgroundThread() {
@@ -106,9 +121,27 @@ class CameraActivity : AppCompatActivity() {
             imageReader = ImageReader.newInstance(imageDimension!!.width, imageDimension!!.height, ImageFormat.YUV_420_888, 2)
             imageReader?.setOnImageAvailableListener(fun(reader: ImageReader) {
                 Timber.d("ImageReader ready")
+                val image = reader.acquireLatestImage() ?: return
+                if (!captureInProgress) {
+                    Timber.d("Image process start")
+                    captureInProgress = true
+                    val firebaseImage = FirebaseVisionImage.fromMediaImage(image, Surface.ROTATION_90)
+                    detector.detectInImage(firebaseImage).addOnSuccessListener { faceList ->
+                        Timber.d("face detected: ${faceList.size}")
+                        captureInProgress = false
+                        faceList.forEach { faceVision ->
+                            Timber.d("Bounding box: ${faceVision.boundingBox}")
+                        }
+                    }.addOnFailureListener { exception ->
+                        Timber.e(exception, "Exception")
+                        captureInProgress = false
+                    }
+                }
+                image.close()
             }, Handler(handlerThread.looper))
             captureRequestBuilder = camera?.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
             captureRequestBuilder?.addTarget(surface)
+            captureRequestBuilder?.addTarget(imageReader?.surface)
             camera?.createCaptureSession(listOf(surface, imageReader?.surface), object: CameraCaptureSession.StateCallback() {
                 override fun onConfigureFailed(session: CameraCaptureSession?) {
                     Timber.d("Configuration change")
@@ -159,16 +192,9 @@ class CameraActivity : AppCompatActivity() {
         }
         captureRequestBuilder?.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
         try {
-            session?.setRepeatingRequest(captureRequestBuilder?.build(), captureCallback, backgroundHandler)
+            session?.setRepeatingRequest(captureRequestBuilder?.build(), null, backgroundHandler)
         } catch (e: CameraAccessException) {
             Timber.e(e)
-        }
-    }
-
-    private val captureCallback = object: CameraCaptureSession.CaptureCallback() {
-        override fun onCaptureCompleted(session: CameraCaptureSession?, request: CaptureRequest?, result: TotalCaptureResult?) {
-            super.onCaptureCompleted(session, request, result)
-            Timber.d("onCaptureCompleted")
         }
     }
 
