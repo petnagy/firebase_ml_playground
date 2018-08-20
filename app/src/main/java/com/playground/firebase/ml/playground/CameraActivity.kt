@@ -83,12 +83,12 @@ class CameraActivity : AppCompatActivity() {
         texture.surfaceTextureListener = textureListener
 
         val options = FirebaseVisionFaceDetectorOptions.Builder()
-                        .setModeType(FirebaseVisionFaceDetectorOptions.FAST_MODE)
-                        .setLandmarkType(FirebaseVisionFaceDetectorOptions.NO_LANDMARKS)
-                        .setClassificationType(FirebaseVisionFaceDetectorOptions.NO_CLASSIFICATIONS)
-                        .setMinFaceSize(0.15f)
-                        .setTrackingEnabled(true)
-                        .build()
+                .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
+                .setLandmarkType(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
+                .setClassificationType(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
+                .setMinFaceSize(0.15f)
+                .setTrackingEnabled(true)
+                .build()
         detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
     }
 
@@ -115,10 +115,9 @@ class CameraActivity : AppCompatActivity() {
             surfaceTexture.setDefaultBufferSize(imageDimension!!.width, imageDimension!!.height)
             val surface = Surface(surfaceTexture)
 
-
             val handlerThread = HandlerThread("imageHandler")
             handlerThread.start()
-            imageReader = ImageReader.newInstance(imageDimension!!.width, imageDimension!!.height, ImageFormat.YUV_420_888, 2)
+            imageReader = ImageReader.newInstance(imageDimension!!.width, imageDimension!!.height, ImageFormat.YUV_420_888, 30)
             imageReader?.setOnImageAvailableListener(fun(reader: ImageReader) {
                 Timber.d("ImageReader ready")
                 val image = reader.acquireLatestImage() ?: return
@@ -128,13 +127,17 @@ class CameraActivity : AppCompatActivity() {
                     val firebaseImage = FirebaseVisionImage.fromMediaImage(image, Surface.ROTATION_90)
                     detector.detectInImage(firebaseImage).addOnSuccessListener { faceList ->
                         Timber.d("face detected: ${faceList.size}")
-                        captureInProgress = false
                         faceList.forEach { faceVision ->
                             Timber.d("Bounding box: ${faceVision.boundingBox}")
                         }
+                        if (captureInProgress) {
+                            captureInProgress = false
+                        }
                     }.addOnFailureListener { exception ->
                         Timber.e(exception, "Exception")
-                        captureInProgress = false
+                        if (captureInProgress) {
+                            captureInProgress = false
+                        }
                     }
                 }
                 image.close()

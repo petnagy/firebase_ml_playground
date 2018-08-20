@@ -29,6 +29,7 @@
         <activity android:name=".RemoteMlActivity" />
         <activity android:name=".LocalMlActivity" />
         <activity android:name=".CameraActivity" />
+        <activity android:name=".CameraActivityWithMoodDetection" />
     </application>
 
 </manifest>

@@ -15,6 +15,7 @@ class MainActivity : AppCompatActivity() {
         remote.setOnClickListener { _ -> startFirebaseRemoteMl() }
         local.setOnClickListener { _ -> startFirebaseLocalMl() }
         camera.setOnClickListener {_ -> startLiveCamera()}
+        camera2.setOnClickListener {_ -> startLiveCamera2()}
     }
 
     private fun startFirebaseRemoteMl() {
@@ -30,5 +31,10 @@ class MainActivity : AppCompatActivity() {
     private fun  startLiveCamera() {
         Timber.d("Start live Camera")
         startActivity(Intent(this@MainActivity, CameraActivity::class.java))
+    }
+
+    private fun  startLiveCamera2() {
+        Timber.d("Start live Camera")
+        startActivity(Intent(this@MainActivity, CameraActivityWithMoodDetection::class.java))
     }
 }
