@@ -23,7 +23,7 @@ import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 import com.google.firebase.ml.vision.face.FirebaseVisionFace
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceLandmark
-import kotlinx.android.synthetic.main.vilicamera.*
+import kotlinx.android.synthetic.main.camera_with_mood.*
 import timber.log.Timber
 
 class CameraActivityWithMoodDetection : AppCompatActivity() {
@@ -47,13 +47,12 @@ class CameraActivityWithMoodDetection : AppCompatActivity() {
     @RequiresApi(api = Build.VERSION_CODES.N)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.vilicamera)
+        setContentView(R.layout.camera_with_mood)
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
     override fun onResume() {
         super.onResume()
-
         val options =
                 FirebaseVisionFaceDetectorOptions.Builder()
                         .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
