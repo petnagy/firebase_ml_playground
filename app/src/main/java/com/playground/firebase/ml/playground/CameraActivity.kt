@@ -1,23 +1,27 @@
 package com.playground.firebase.ml.playground
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.ImageFormat
-import android.graphics.SurfaceTexture
+import android.graphics.*
 import android.hardware.camera2.*
 import android.media.ImageReader
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.support.annotation.RequiresApi
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.util.Size
+import android.util.SparseIntArray
 import android.view.Surface
 import android.view.TextureView
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetector
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import kotlinx.android.synthetic.main.camera_layout.*
@@ -27,7 +31,15 @@ import timber.log.Timber
 class CameraActivity : AppCompatActivity() {
 
     companion object {
-        const val CAMERA_PERMISSION_REQUEST_CODE = 21431
+        private const val CAMERA_PERMISSION_REQUEST_CODE = 21431
+        private val ORIENTATIONS = SparseIntArray()
+
+        init {
+            ORIENTATIONS.append(Surface.ROTATION_0, 90)
+            ORIENTATIONS.append(Surface.ROTATION_90, 0)
+            ORIENTATIONS.append(Surface.ROTATION_180, 270)
+            ORIENTATIONS.append(Surface.ROTATION_270, 180)
+        }
     }
 
     var camera: CameraDevice? = null
@@ -40,6 +52,7 @@ class CameraActivity : AppCompatActivity() {
     private var imageReader: ImageReader? = null
     private lateinit var detector: FirebaseVisionFaceDetector
     private var captureInProgress: Boolean = false
+    private lateinit var manager: CameraManager
 
     private val textureListener = object: TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture?, width: Int, height: Int) {
@@ -81,7 +94,8 @@ class CameraActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.camera_layout)
         texture.surfaceTextureListener = textureListener
-
+        drawing.isOpaque = true
+        drawing.alpha = 0.5f
         val options = FirebaseVisionFaceDetectorOptions.Builder()
                 .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
                 .setLandmarkType(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
@@ -117,19 +131,28 @@ class CameraActivity : AppCompatActivity() {
 
             val handlerThread = HandlerThread("imageHandler")
             handlerThread.start()
-            imageReader = ImageReader.newInstance(imageDimension!!.width, imageDimension!!.height, ImageFormat.YUV_420_888, 30)
+            imageReader = ImageReader.newInstance(1440, 2112, ImageFormat.YUV_420_888, 30)
             imageReader?.setOnImageAvailableListener(fun(reader: ImageReader) {
                 Timber.d("ImageReader ready")
                 val image = reader.acquireLatestImage() ?: return
+                Timber.d("Image Size: ${image.width}, ${image.height}")
+                val imageSize = Size(image.width, image.height)
                 if (!captureInProgress) {
                     Timber.d("Image process start")
                     captureInProgress = true
-                    val firebaseImage = FirebaseVisionImage.fromMediaImage(image, Surface.ROTATION_90)
+                    val firebaseImage = FirebaseVisionImage.fromMediaImage(image, getRotationCompensation(this@CameraActivity, manager, cameraId))
                     detector.detectInImage(firebaseImage).addOnSuccessListener { faceList ->
                         Timber.d("face detected: ${faceList.size}")
-                        faceList.forEach { faceVision ->
-                            Timber.d("Bounding box: ${faceVision.boundingBox}")
+
+                        if (faceList.isNotEmpty()) {
+                            faceList.forEach { faceVision ->
+                                Timber.d("Bounding box: ${faceVision.boundingBox}")
+                                drawRect(faceVision.boundingBox, imageSize)
+                            }
+                        } else {
+                            //TODO clear canvas
                         }
+
                         if (captureInProgress) {
                             captureInProgress = false
                         }
@@ -167,9 +190,27 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
+    private fun drawRect(rect: Rect, imageSize: Size) {
+        val canvas = drawing.lockCanvas()
+        canvas?.let{ canvas ->
+            Timber.d("Canvas width: ${canvas.width} and height: ${canvas.height}")
+            val paint = Paint()
+            paint.color = Color.WHITE
+            val widthCorrection = canvas.width / imageSize.width.toDouble()
+            val heightCorrection = canvas.height / imageSize.height.toDouble()
+            Timber.d("Corrections: $widthCorrection, $heightCorrection")
+            val fixedRect = Rect((rect.left * widthCorrection).toInt(), (rect.top * heightCorrection).toInt(),
+                    (rect.right * widthCorrection).toInt(), (rect.bottom * heightCorrection).toInt())
+
+            Timber.d("fixed Rect: $fixedRect")
+            canvas.drawRect(fixedRect, paint)
+            drawing.unlockCanvasAndPost(canvas)
+        }
+    }
+
     private fun openCamera() {
-        val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        Timber.d("Camera is openning")
+        //val manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        Timber.d("Camera is opening")
         try {
             cameraId = manager.cameraIdList[0]
             if (manager.cameraIdList.size > 1) {
@@ -224,6 +265,7 @@ class CameraActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Timber.d("onResume")
+        manager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
         startBackgroundThread()
         if (texture.isAvailable) {
             openCamera()
@@ -237,5 +279,38 @@ class CameraActivity : AppCompatActivity() {
         stopBackgroundThread()
         closeCamera()
         super.onPause()
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    @Throws(CameraAccessException::class)
+    private fun getRotationCompensation(activity: Activity, cameraManager: CameraManager, cameraId: String): Int {
+        // Get the device's current rotation relative to its "native" orientation.
+        // Then, from the ORIENTATIONS table, look up the angle the image must be
+        // rotated to compensate for the device's rotation.
+        val deviceRotation = activity.windowManager.defaultDisplay.rotation
+        var rotationCompensation = ORIENTATIONS.get(deviceRotation)
+
+        // On most devices, the sensor orientation is 90 degrees, but for some
+        // devices it is 270 degrees. For devices with a sensor orientation of
+        // 270, rotate the image an additional 180 ((270 + 270) % 360) degrees.
+        val sensorOrientation = cameraManager
+                .getCameraCharacteristics(cameraId)
+                .get(CameraCharacteristics.SENSOR_ORIENTATION)!!
+        rotationCompensation = (rotationCompensation + sensorOrientation + 270) % 360
+
+        // Return the corresponding FirebaseVisionImageMetadata rotation value.
+        val result: Int
+        when (rotationCompensation) {
+            0 -> result = FirebaseVisionImageMetadata.ROTATION_0
+            90 -> result = FirebaseVisionImageMetadata.ROTATION_90
+            180 -> result = FirebaseVisionImageMetadata.ROTATION_180
+            270 -> result = FirebaseVisionImageMetadata.ROTATION_270
+            else -> {
+                result = FirebaseVisionImageMetadata.ROTATION_0
+                Timber.e("Bad rotation value: $rotationCompensation")
+            }
+        }
+        Timber.d("Rotation: $result")
+        return result
     }
 }
