@@ -30,6 +30,7 @@
         <activity android:name=".LocalMlActivity" />
         <activity android:name=".CameraActivity" />
         <activity android:name=".CameraActivityWithMoodDetection" />
+        <activity android:name=".FaceDetectActivity" />
     </application>
 
 </manifest>
