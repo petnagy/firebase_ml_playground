@@ -14,8 +14,9 @@ class MainActivity : AppCompatActivity() {
 
         remote.setOnClickListener { _ -> startFirebaseRemoteMl() }
         local.setOnClickListener { _ -> startFirebaseLocalMl() }
-        camera.setOnClickListener {_ -> startLiveCamera()}
-        camera2.setOnClickListener {_ -> startLiveCamera2()}
+        face_detect.setOnClickListener { _ -> startFaceDetect() }
+        //camera.setOnClickListener {_ -> startLiveCamera()}
+        //camera2.setOnClickListener {_ -> startLiveCamera2()}
     }
 
     private fun startFirebaseRemoteMl() {
@@ -26,6 +27,11 @@ class MainActivity : AppCompatActivity() {
     private fun startFirebaseLocalMl() {
         Timber.d("Start Local ML")
         startActivity(Intent(this@MainActivity, LocalMlActivity::class.java))
+    }
+
+    private fun startFaceDetect() {
+        Timber.d("Face detect start")
+        startActivity(Intent(this@MainActivity, FaceDetectActivity::class.java))
     }
 
     private fun  startLiveCamera() {
