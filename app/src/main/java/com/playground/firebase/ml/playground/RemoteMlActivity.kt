@@ -20,6 +20,9 @@ import com.google.firebase.ml.vision.cloud.landmark.FirebaseVisionCloudLandmark
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import timber.log.Timber
 import com.google.firebase.ml.vision.cloud.text.FirebaseVisionCloudText
+import pl.aprilapps.easyphotopicker.DefaultCallback
+import pl.aprilapps.easyphotopicker.EasyImage
+import java.io.File
 
 
 class RemoteMlActivity : AppCompatActivity() {
@@ -35,6 +38,11 @@ class RemoteMlActivity : AppCompatActivity() {
 
         progress.visibility = View.INVISIBLE
         takePhoto.setOnClickListener { _ -> checkAndLaunchCamera() }
+
+        EasyImage.clearConfiguration(this)
+        EasyImage.configuration(this)
+                .setImagesFolderName("Images_Playground")
+                .saveInAppExternalFilesDir()
     }
 
     private fun checkAndLaunchCamera() {
@@ -58,25 +66,46 @@ class RemoteMlActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == CAMERA_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-            var resultText = ""
-            response.text = resultText
-            val photo = data?.extras?.get("data") as Bitmap
-            image.setImageBitmap(photo)
-            getLandmarkTask(photo).addOnCompleteListener { task ->
-                resultText += processLandmarksResult(task)
-                response.text = resultText
-            }.continueWithTask { _ ->
-                getLabelingTask(photo).addOnCompleteListener { task ->
-                    resultText += processLabelingResult(task)
-                    response.text = resultText
-                }
-            }.continueWithTask { _ ->
-                getTextTask(photo).addOnCompleteListener { task ->
-                    resultText += processTextResult(task)
-                    response.text = resultText
+        EasyImage.handleActivityResult(requestCode, resultCode, data, this, object:DefaultCallback() {
+            override fun onImagePicked(imageFile: File?, source: EasyImage.ImageSource?, type: Int) {
+                if (imageFile != null) {
+                    val bitmap = loadBitmapFromCamera(image, imageFile.absolutePath)
+                    if(bitmap != null) {
+                        var resultText = ""
+                        response.text = resultText
+                        image.setImageBitmap(bitmap)
+                        getLandmarkTask(bitmap).addOnCompleteListener { task ->
+                            resultText += processLandmarksResult(task)
+                            response.text = resultText
+                        }.continueWithTask { _ ->
+                            getLabelingTask(bitmap).addOnCompleteListener { task ->
+                                resultText += processLabelingResult(task)
+                                response.text = resultText
+                            }
+                        }.continueWithTask { _ ->
+                            getTextTask(bitmap).addOnCompleteListener { task ->
+                                resultText += processTextResult(task)
+                                response.text = resultText
+                            }
+                        }
+                    }
                 }
             }
+
+            override fun onImagePickerError(e: Exception?, source: EasyImage.ImageSource?, type: Int) {
+                Timber.e(e, "Exception!!!!!")
+            }
+
+            override fun onCanceled(source: EasyImage.ImageSource?, type: Int) {
+                //Cancel handling, you might wanna remove taken photo if it was canceled
+                if (source == EasyImage.ImageSource.CAMERA) {
+                    EasyImage.lastlyTakenButCanceledPhoto(this@RemoteMlActivity)?.delete()
+                }
+            }
+        })
+
+        if (requestCode == CAMERA_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+
         }
     }
 
@@ -161,7 +190,7 @@ class RemoteMlActivity : AppCompatActivity() {
 
     private fun launchCamera() {
         Timber.d("Launch Camera")
-        startActivityForResult(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE), CAMERA_REQUEST_CODE)
+        EasyImage.openCamera(this, 0)
         response.text = ""
     }
 

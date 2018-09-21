@@ -2,7 +2,6 @@ package com.playground.firebase.ml.playground
 
 import android.Manifest.permission.CAMERA
 import android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -22,14 +21,16 @@ import com.google.firebase.ml.vision.label.FirebaseVisionLabel
 import com.google.firebase.ml.vision.label.FirebaseVisionLabelDetectorOptions
 import com.google.firebase.ml.vision.text.FirebaseVisionText
 import kotlinx.android.synthetic.main.base_layout.*
+import pl.aprilapps.easyphotopicker.DefaultCallback
+import pl.aprilapps.easyphotopicker.EasyImage
 import timber.log.Timber
+import java.io.File
 
 
 class LocalMlActivity : AppCompatActivity() {
 
     companion object {
         const val CAMERA_PERMISSION_REQUEST_CODE = 21431
-        const val CAMERA_REQUEST_CODE = 1535
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,6 +39,11 @@ class LocalMlActivity : AppCompatActivity() {
 
         progress.visibility = View.INVISIBLE
         takePhoto.setOnClickListener { _ -> checkAndLaunchCamera() }
+
+        EasyImage.clearConfiguration(this)
+        EasyImage.configuration(this)
+                .setImagesFolderName("Images_Playground")
+                .saveInAppExternalFilesDir()
     }
 
     private fun checkAndLaunchCamera() {
@@ -60,38 +66,55 @@ class LocalMlActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == CAMERA_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-            var resultText = ""
-            response.text = resultText
-            val photo = data?.extras?.get("data") as Bitmap
-            image.setImageBitmap(photo)
-            getFaceTask(photo).addOnCompleteListener { task ->
-                resultText += processFacesResult(task)
-                response.text = resultText
-            }.continueWithTask { _ ->
-                getLabelingTask(photo).addOnCompleteListener { task ->
-                    resultText += processLabelingResult(task)
-                    response.text = resultText
-                }
-            }.continueWithTask { _ ->
-                getTextTask(photo).addOnCompleteListener { task ->
-                    resultText += processTextResult(task)
-                    response.text = resultText
-                }
-            }.continueWithTask { _ ->
-                getBarcodeTask(photo).addOnCompleteListener { task ->
-                    resultText += processBarcodeResult(task)
-                    response.text = resultText
+        EasyImage.handleActivityResult(requestCode, resultCode, data, this, object:DefaultCallback() {
+            override fun onImagePicked(imageFile: File?, source: EasyImage.ImageSource?, type: Int) {
+                if (imageFile != null) {
+                    val bitmap = loadBitmapFromCamera(image, imageFile.absolutePath)
+                    if(bitmap != null) {
+                        var resultText = ""
+                        response.text = resultText
+                        image.setImageBitmap(bitmap)
+                        getFaceTask(bitmap).addOnCompleteListener { task ->
+                            resultText += processFacesResult(task)
+                            response.text = resultText
+                        }.continueWithTask { _ ->
+                            getLabelingTask(bitmap).addOnCompleteListener { task ->
+                                resultText += processLabelingResult(task)
+                                response.text = resultText
+                            }
+                        }.continueWithTask { _ ->
+                            getTextTask(bitmap).addOnCompleteListener { task ->
+                                resultText += processTextResult(task)
+                                response.text = resultText
+                            }
+                        }.continueWithTask { _ ->
+                            getBarcodeTask(bitmap).addOnCompleteListener { task ->
+                                resultText += processBarcodeResult(task)
+                                response.text = resultText
+                            }
+                        }
+                    }
                 }
             }
-        }
+
+            override fun onImagePickerError(e: Exception?, source: EasyImage.ImageSource?, type: Int) {
+                Timber.e(e, "Exception!!!!!")
+            }
+
+            override fun onCanceled(source: EasyImage.ImageSource?, type: Int) {
+                //Cancel handling, you might wanna remove taken photo if it was canceled
+                if (source == EasyImage.ImageSource.CAMERA) {
+                    EasyImage.lastlyTakenButCanceledPhoto(this@LocalMlActivity)?.delete()
+                }
+            }
+        })
     }
 
     private fun processBarcodeResult(task: Task<List<FirebaseVisionBarcode>>): String {
         var result = ""
         val barcodes = task.result
         if (barcodes.isNotEmpty()) {
-            result += "Barcode: " + barcodes.map { barcode -> barcode.rawValue }.joinToString(prefix = "[", postfix = "]")
+            result += "Barcode: " + barcodes.asSequence().map { barcode -> barcode.rawValue }.joinToString(prefix = "[", postfix = "]")
             result += "\n"
         }
         return result
@@ -190,7 +213,7 @@ class LocalMlActivity : AppCompatActivity() {
 
     private fun launchCamera() {
         Timber.d("Launch Camera")
-        startActivityForResult(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE), CAMERA_REQUEST_CODE)
+        EasyImage.openCamera(this, 0)
         response.text = ""
     }
 
