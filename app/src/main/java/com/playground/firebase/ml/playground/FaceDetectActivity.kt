@@ -3,14 +3,18 @@ package com.playground.firebase.ml.playground
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Matrix
+import android.graphics.*
 import android.os.Bundle
-import android.os.Environment
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
-import android.util.DisplayMetrics
+import android.view.View
+import android.widget.ImageView
+import com.google.android.gms.tasks.Task
+import com.google.firebase.ml.vision.FirebaseVision
+import com.google.firebase.ml.vision.common.FirebaseVisionImage
+import com.google.firebase.ml.vision.face.FirebaseVisionFace
+import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
 import kotlinx.android.synthetic.main.base_layout.*
 import pl.aprilapps.easyphotopicker.DefaultCallback
 import pl.aprilapps.easyphotopicker.EasyImage
@@ -21,10 +25,7 @@ class FaceDetectActivity : AppCompatActivity() {
 
     companion object {
         const val CAMERA_PERMISSION_REQUEST_CODE = 21431
-        const val CAMERA_REQUEST_CODE = 1535
     }
-
-    lateinit var currentPhotoPath: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,8 +49,6 @@ class FaceDetectActivity : AppCompatActivity() {
 
     private fun launchCamera() {
         Timber.d("Launch Camera")
-        //startActivityForResult(Intent(MediaStore.ACTION_IMAGE_CAPTURE), CAMERA_REQUEST_CODE)
-
         EasyImage.openCamera(this, 0)
     }
 
@@ -68,7 +67,14 @@ class FaceDetectActivity : AppCompatActivity() {
 
         EasyImage.handleActivityResult(requestCode, resultCode, data, this, object:DefaultCallback() {
             override fun onImagePicked(imageFile: File?, source: EasyImage.ImageSource?, type: Int) {
-
+                if (imageFile != null) {
+                    takePhoto.visibility = View.GONE
+                    image.visibility = View.VISIBLE
+                    val bitmap = loadBitmapFromCamera(image, imageFile.absolutePath)
+                    if(bitmap != null) {
+                        getFaceTask(bitmap)
+                    }
+                }
             }
 
             override fun onImagePickerError(e: Exception?, source: EasyImage.ImageSource?, type: Int) {
@@ -82,51 +88,36 @@ class FaceDetectActivity : AppCompatActivity() {
                 }
             }
         })
-
-//        if (requestCode == CAMERA_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-//            val photo = data?.extras?.get("data") as Bitmap
-//            takePhoto.visibility = View.GONE
-//            image.visibility = View.VISIBLE
-//            val screenBitmap = convertBitmap(photo)
-//            image.setImageBitmap(screenBitmap)
-////            getFaceTask(photo).addOnCompleteListener { task ->
-////                resultText += processFacesResult(task)
-////                response.text = resultText
-////            }.continueWithTask { _ ->
-////                getLabelingTask(photo).addOnCompleteListener { task ->
-////                    resultText += processLabelingResult(task)
-////                    response.text = resultText
-////                }
-////            }.continueWithTask { _ ->
-////                getTextTask(photo).addOnCompleteListener { task ->
-////                    resultText += processTextResult(task)
-////                    response.text = resultText
-////                }
-////            }.continueWithTask { _ ->
-////                getBarcodeTask(photo).addOnCompleteListener { task ->
-////                    resultText += processBarcodeResult(task)
-////                    response.text = resultText
-////                }
-////            }
-//        }
     }
 
-    private fun convertBitmap(bitmap: Bitmap): Bitmap {
-        val metrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(metrics)
-        val width = bitmap.width
-        val height = bitmap.height
-        val scaleWidth = metrics.scaledDensity
-        val scaleHeight = metrics.scaledDensity
-        val matrix = Matrix()
-        matrix.postScale(scaleWidth, scaleHeight)
-        return Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true)
-    }
+    private fun getFaceTask(bitmap: Bitmap): Task<List<FirebaseVisionFace>> {
+        val options = FirebaseVisionFaceDetectorOptions.Builder()
+                .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
+                .setLandmarkType(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
+                .setClassificationType(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
+                .setMinFaceSize(0.15f)
+                .setTrackingEnabled(false)
+                .build()
+        val firebaseVisionImage = FirebaseVisionImage.fromBitmap(bitmap)
+        val detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
+        return detector.detectInImage(firebaseVisionImage).addOnSuccessListener { list ->
+            Timber.d("SUCCESS and size of faces: ${list.size}")
 
-    private fun createImageFile() : File {
-        val storageDir: File = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-        return File.createTempFile("image",".jpg", storageDir).apply {
-            currentPhotoPath = absolutePath
+            val paint = Paint()
+            paint.color = Color.WHITE
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 5F
+            val tempBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.RGB_565)
+            val tempCanvas = Canvas(tempBitmap)
+            tempCanvas.drawBitmap(bitmap, 0.0F, 0.0F, Paint())
+
+            list.forEach { faceVision ->
+                tempCanvas.drawRect(faceVision.boundingBox, paint)
+            }
+
+            image.setImageBitmap(tempBitmap)
+        }.addOnFailureListener { exception ->
+            Timber.e("FAILED ${exception.localizedMessage}")
         }
     }
 }
