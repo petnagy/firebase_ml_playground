@@ -6,20 +6,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
-import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
-import android.support.v4.content.FileProvider
 import android.support.v7.app.AppCompatActivity
 import android.util.DisplayMetrics
 import android.view.View
 import kotlinx.android.synthetic.main.base_layout.*
 import timber.log.Timber
 import java.io.File
-import java.io.IOException
 
 class FaceDetectActivity : AppCompatActivity() {
 
@@ -47,24 +44,7 @@ class FaceDetectActivity : AppCompatActivity() {
 
     private fun launchCamera() {
         Timber.d("Launch Camera")
-        Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
-            takePictureIntent.resolveActivity(packageManager)?.also {
-                //Create the File
-                val photoFile: File? = try {
-                    createImageFile()
-                } catch (e: IOException) {
-                    Timber.e(e,"Error")
-                    null
-                }
-                photoFile?.also {
-                    val photoURI: Uri = FileProvider.getUriForFile(this,
-                            "com.example.android.fileprovider"
-                            , it)
-                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-                    startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE)
-                }
-            }
-        }
+        startActivityForResult(Intent(MediaStore.ACTION_IMAGE_CAPTURE), CAMERA_REQUEST_CODE)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
