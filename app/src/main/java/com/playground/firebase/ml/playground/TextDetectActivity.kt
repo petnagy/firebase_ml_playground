@@ -3,7 +3,10 @@ package com.playground.firebase.ml.playground
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.os.Bundle
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
@@ -14,13 +17,16 @@ import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.google.firebase.ml.vision.face.FirebaseVisionFace
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
+import com.google.firebase.ml.vision.label.FirebaseVisionLabel
+import com.google.firebase.ml.vision.label.FirebaseVisionLabelDetectorOptions
+import com.google.firebase.ml.vision.text.FirebaseVisionText
 import kotlinx.android.synthetic.main.base_layout.*
 import pl.aprilapps.easyphotopicker.DefaultCallback
 import pl.aprilapps.easyphotopicker.EasyImage
 import timber.log.Timber
 import java.io.File
 
-class FaceDetectActivity : AppCompatActivity() {
+class TextDetectActivity: AppCompatActivity() {
 
     companion object {
         const val CAMERA_PERMISSION_REQUEST_CODE = 21431
@@ -64,14 +70,14 @@ class FaceDetectActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        EasyImage.handleActivityResult(requestCode, resultCode, data, this, object:DefaultCallback() {
+        EasyImage.handleActivityResult(requestCode, resultCode, data, this, object: DefaultCallback() {
             override fun onImagePicked(imageFile: File?, source: EasyImage.ImageSource?, type: Int) {
                 if (imageFile != null) {
                     takePhoto.visibility = View.GONE
                     image.visibility = View.VISIBLE
                     val bitmap = loadBitmapFromCamera(image, imageFile.absolutePath)
                     if(bitmap != null) {
-                        getFaceTask(bitmap)
+                        getTextTask(bitmap)
                     }
                 }
             }
@@ -83,58 +89,36 @@ class FaceDetectActivity : AppCompatActivity() {
             override fun onCanceled(source: EasyImage.ImageSource?, type: Int) {
                 //Cancel handling, you might wanna remove taken photo if it was canceled
                 if (source == EasyImage.ImageSource.CAMERA) {
-                    EasyImage.lastlyTakenButCanceledPhoto(this@FaceDetectActivity)?.delete()
+                    EasyImage.lastlyTakenButCanceledPhoto(this@TextDetectActivity)?.delete()
                 }
             }
         })
     }
 
-    private fun getFaceTask(bitmap: Bitmap): Task<List<FirebaseVisionFace>> {
-        val options = FirebaseVisionFaceDetectorOptions.Builder()
-                .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
-                .setLandmarkType(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
-                .setClassificationType(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
-                .setMinFaceSize(0.15f)
-                .setTrackingEnabled(false)
-                .build()
-        val firebaseVisionImage = FirebaseVisionImage.fromBitmap(bitmap)
-        val detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
-        return detector.detectInImage(firebaseVisionImage).addOnSuccessListener { list ->
-            Timber.d("SUCCESS and size of faces: ${list.size}")
+    private fun getTextTask(bitmap: Bitmap): Task<FirebaseVisionText> {
+        val visionImage = FirebaseVisionImage.fromBitmap(bitmap)
+        val detector = FirebaseVision.getInstance().visionTextDetector
+        return detector.detectInImage(visionImage).addOnSuccessListener { text ->
+            val recognizedText = text.blocks.joinToString { block -> block.text }
+            Timber.d("SUCCESS and text: $recognizedText")
 
-            val framePaint = Paint()
-            framePaint.color = Color.WHITE
-            framePaint.style = Paint.Style.STROKE
-            framePaint.strokeWidth = 4f
-
-            val textPaint = Paint()
-            textPaint.color = Color.WHITE
-            textPaint.style = Paint.Style.FILL_AND_STROKE
-            textPaint.textSize = 30f
-            textPaint.strokeWidth = 2f
-
+            val paint = Paint()
+            paint.color = Color.WHITE
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 5F
             val tempBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.RGB_565)
             val tempCanvas = Canvas(tempBitmap)
             tempCanvas.drawBitmap(bitmap, 0.0F, 0.0F, Paint())
 
-            list.forEach { faceVision ->
-                tempCanvas.drawRect(faceVision.boundingBox, framePaint)
-                val textX: Float = calculateX(faceVision.boundingBox)
-                val textY: Float = calculateY(faceVision.boundingBox)
-                tempCanvas.drawText("%.2f".format(faceVision.smilingProbability), textX, textY, textPaint)
+            text.blocks.forEach { block ->
+                tempCanvas.drawRect(block.boundingBox, paint)
             }
 
             image.setImageBitmap(tempBitmap)
+
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
         }
     }
 
-    private fun calculateX(rect: Rect): Float {
-        return rect.exactCenterX()
-    }
-
-    private fun calculateY(rect: Rect): Float {
-        return (rect.bottom - 20).toFloat()
-    }
 }

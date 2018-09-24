@@ -74,6 +74,7 @@ class RemoteMlActivity : AppCompatActivity() {
                         var resultText = ""
                         response.text = resultText
                         image.setImageBitmap(bitmap)
+                        showProgress()
                         getLandmarkTask(bitmap).addOnCompleteListener { task ->
                             resultText += processLandmarksResult(task)
                             response.text = resultText
@@ -86,6 +87,7 @@ class RemoteMlActivity : AppCompatActivity() {
                             getTextTask(bitmap).addOnCompleteListener { task ->
                                 resultText += processTextResult(task)
                                 response.text = resultText
+                                hideProgress()
                             }
                         }
                     }
@@ -157,6 +159,7 @@ class RemoteMlActivity : AppCompatActivity() {
             Timber.d("SUCCESS and size of landmarks: ${list.size}")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
+            hideProgress()
         }
     }
 
@@ -171,6 +174,7 @@ class RemoteMlActivity : AppCompatActivity() {
             Timber.d("SUCCESS and size of labels: ${list.size}")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
+            hideProgress()
         }
     }
 
@@ -185,6 +189,7 @@ class RemoteMlActivity : AppCompatActivity() {
             Timber.d("SUCCESS and text: ${text?.text}")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
+            hideProgress()
         }
     }
 
@@ -194,4 +199,11 @@ class RemoteMlActivity : AppCompatActivity() {
         response.text = ""
     }
 
+    private fun showProgress() {
+        progress.visibility = View.VISIBLE
+    }
+
+    private fun hideProgress() {
+        progress.visibility = View.GONE
+    }
 }

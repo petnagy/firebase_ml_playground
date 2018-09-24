@@ -74,6 +74,7 @@ class LocalMlActivity : AppCompatActivity() {
                         var resultText = ""
                         response.text = resultText
                         image.setImageBitmap(bitmap)
+                        showProgress()
                         getFaceTask(bitmap).addOnCompleteListener { task ->
                             resultText += processFacesResult(task)
                             response.text = resultText
@@ -91,6 +92,7 @@ class LocalMlActivity : AppCompatActivity() {
                             getBarcodeTask(bitmap).addOnCompleteListener { task ->
                                 resultText += processBarcodeResult(task)
                                 response.text = resultText
+                                hideProgress()
                             }
                         }
                     }
@@ -171,6 +173,7 @@ class LocalMlActivity : AppCompatActivity() {
             Timber.d("SUCCESS and size of faces: ${list.size}")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
+            hideProgress()
         }
     }
 
@@ -184,6 +187,7 @@ class LocalMlActivity : AppCompatActivity() {
             Timber.d("SUCCESS and size of labels: ${list.size}")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
+            hideProgress()
         }
     }
 
@@ -195,6 +199,7 @@ class LocalMlActivity : AppCompatActivity() {
             Timber.d("SUCCESS and text: $recognizedText")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
+            hideProgress()
         }
     }
 
@@ -208,6 +213,7 @@ class LocalMlActivity : AppCompatActivity() {
             Timber.d("SUCCESS and size of labels: ${barcodes.size}")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
+            hideProgress()
         }
     }
 
@@ -217,4 +223,11 @@ class LocalMlActivity : AppCompatActivity() {
         response.text = ""
     }
 
+    private fun showProgress() {
+        progress.visibility = View.VISIBLE
+    }
+
+    private fun hideProgress() {
+        progress.visibility = View.GONE
+    }
 }

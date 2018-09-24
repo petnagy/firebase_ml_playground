@@ -31,6 +31,7 @@
         <activity android:name=".CameraActivity" />
         <activity android:name=".CameraActivityWithMoodDetection" />
         <activity android:name=".FaceDetectActivity" />
+        <activity android:name=".TextDetectActivity" />
     </application>
 
 </manifest>
