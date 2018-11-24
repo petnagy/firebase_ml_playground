@@ -38,7 +38,7 @@ class LocalMlActivity : AppCompatActivity() {
         setContentView(R.layout.base_layout)
 
         progress.visibility = View.INVISIBLE
-        takePhoto.setOnClickListener { _ -> checkAndLaunchCamera() }
+        takePhoto.setOnClickListener { checkAndLaunchCamera() }
 
         EasyImage.clearConfiguration(this)
         EasyImage.configuration(this)
@@ -78,17 +78,17 @@ class LocalMlActivity : AppCompatActivity() {
                         getFaceTask(bitmap).addOnCompleteListener { task ->
                             resultText += processFacesResult(task)
                             response.text = resultText
-                        }.continueWithTask { _ ->
+                        }.continueWithTask {
                             getLabelingTask(bitmap).addOnCompleteListener { task ->
                                 resultText += processLabelingResult(task)
                                 response.text = resultText
                             }
-                        }.continueWithTask { _ ->
+                        }.continueWithTask {
                             getTextTask(bitmap).addOnCompleteListener { task ->
                                 resultText += processTextResult(task)
                                 response.text = resultText
                             }
-                        }.continueWithTask { _ ->
+                        }.continueWithTask {
                             getBarcodeTask(bitmap).addOnCompleteListener { task ->
                                 resultText += processBarcodeResult(task)
                                 response.text = resultText
@@ -114,58 +114,61 @@ class LocalMlActivity : AppCompatActivity() {
 
     private fun processBarcodeResult(task: Task<List<FirebaseVisionBarcode>>): String {
         var result = ""
-        val barcodes = task.result
-        if (barcodes.isNotEmpty()) {
-            result += "Barcode: " + barcodes.asSequence().map { barcode -> barcode.rawValue }.joinToString(prefix = "[", postfix = "]")
-            result += "\n"
+        task.result?.let { barcodes ->
+            if (barcodes.isNotEmpty()) {
+                result += "Barcode: " + barcodes.asSequence().map { barcode -> barcode.rawValue }.joinToString(prefix = "[", postfix = "]")
+                result += "\n"
+            }
         }
         return result
     }
 
     private fun processTextResult(task: Task<FirebaseVisionText>): String {
         var result = ""
-        val visionText = task.result
-        val recognizedText = visionText.blocks.joinToString { block -> block.text }
-        if (recognizedText.isNotEmpty()) {
-            result += "Text: [$recognizedText]"
+        task.result?.let { visionText ->
+            val recognizedText = visionText.textBlocks.joinToString { block -> block.text }
+            if (recognizedText.isNotEmpty()) {
+                result += "Text: [$recognizedText]"
+            }
+            result += "\n"
         }
-        result += "\n"
         return result
     }
 
     private fun processLabelingResult(task: Task<List<FirebaseVisionLabel>>): String {
         var result = ""
-        val labels = task.result
-        if (labels.isNotEmpty()) {
-            result += "Labels: "
-            labels.forEach { label ->
-                result += "[${label.label}] "
+        task.result?.let { labels ->
+            if (labels.isNotEmpty()) {
+                result += "Labels: "
+                labels.forEach { label ->
+                    result += "[${label.label}] "
+                }
+                result += "\n"
             }
-            result += "\n"
         }
         return result
     }
 
     private fun processFacesResult(task: Task<List<FirebaseVisionFace>>): String {
         var result = ""
-        val faces = task.result
-        if (faces.isNotEmpty()) {
-            result += "Face detection: "
-            faces.forEach { face ->
-                result += "[smile ${face.smilingProbability}] "
+        task.result?.let { faces ->
+            if (faces.isNotEmpty()) {
+                result += "Face detection: "
+                faces.forEach { face ->
+                    result += "[smile ${face.smilingProbability}] "
+                }
+                result += "\n"
             }
-            result += "\n"
         }
         return result
     }
 
     private fun getFaceTask(bitmap: Bitmap): Task<List<FirebaseVisionFace>> {
         val options = FirebaseVisionFaceDetectorOptions.Builder()
-                .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
-                .setLandmarkType(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
-                .setClassificationType(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
+                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.ACCURATE)
+                .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
+                .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
                 .setMinFaceSize(0.15f)
-                .setTrackingEnabled(false)
                 .build()
         val image = FirebaseVisionImage.fromBitmap(bitmap)
         val detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
@@ -193,10 +196,12 @@ class LocalMlActivity : AppCompatActivity() {
 
     private fun getTextTask(bitmap: Bitmap): Task<FirebaseVisionText> {
         val image = FirebaseVisionImage.fromBitmap(bitmap)
-        val detector = FirebaseVision.getInstance().visionTextDetector
-        return detector.detectInImage(image).addOnSuccessListener { text ->
-            val recognizedText = text.blocks.joinToString { block -> block.text }
-            Timber.d("SUCCESS and text: $recognizedText")
+        val detector = FirebaseVision.getInstance().onDeviceTextRecognizer
+        return detector.processImage(image).addOnSuccessListener { text ->
+            if (text != null) {
+                val recognizedText = text.textBlocks.joinToString { block -> block.text }
+                Timber.d("SUCCESS and text: $recognizedText")
+            }
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")
             hideProgress()

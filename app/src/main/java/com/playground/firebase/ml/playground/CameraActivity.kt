@@ -97,11 +97,10 @@ class CameraActivity : AppCompatActivity() {
         drawing.isOpaque = true
         drawing.alpha = 0.5f
         val options = FirebaseVisionFaceDetectorOptions.Builder()
-                .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
-                .setLandmarkType(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
-                .setClassificationType(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
+                .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
+                .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
                 .setMinFaceSize(0.15f)
-                .setTrackingEnabled(true)
+                .enableTracking()
                 .build()
         detector = FirebaseVision.getInstance().getVisionFaceDetector(options)
     }

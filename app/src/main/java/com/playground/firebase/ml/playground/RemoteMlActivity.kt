@@ -1,16 +1,15 @@
 package com.playground.firebase.ml.playground
 
 import android.Manifest.permission.CAMERA
-import android.os.Bundle
-import android.support.v7.app.AppCompatActivity
-import kotlinx.android.synthetic.main.base_layout.*
 import android.Manifest.permission.WRITE_EXTERNAL_STORAGE
 import android.app.Activity
 import android.content.Intent
-import android.support.v4.app.ActivityCompat
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.os.Bundle
+import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
+import android.support.v7.app.AppCompatActivity
 import android.view.View
 import com.google.android.gms.tasks.Task
 import com.google.firebase.ml.vision.FirebaseVision
@@ -18,10 +17,12 @@ import com.google.firebase.ml.vision.cloud.FirebaseVisionCloudDetectorOptions
 import com.google.firebase.ml.vision.cloud.label.FirebaseVisionCloudLabel
 import com.google.firebase.ml.vision.cloud.landmark.FirebaseVisionCloudLandmark
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
-import timber.log.Timber
-import com.google.firebase.ml.vision.cloud.text.FirebaseVisionCloudText
+import com.google.firebase.ml.vision.text.FirebaseVisionCloudTextRecognizerOptions
+import com.google.firebase.ml.vision.text.FirebaseVisionText
+import kotlinx.android.synthetic.main.base_layout.*
 import pl.aprilapps.easyphotopicker.DefaultCallback
 import pl.aprilapps.easyphotopicker.EasyImage
+import timber.log.Timber
 import java.io.File
 
 
@@ -37,7 +38,7 @@ class RemoteMlActivity : AppCompatActivity() {
         setContentView(R.layout.base_layout)
 
         progress.visibility = View.INVISIBLE
-        takePhoto.setOnClickListener { _ -> checkAndLaunchCamera() }
+        takePhoto.setOnClickListener { checkAndLaunchCamera() }
 
         EasyImage.clearConfiguration(this)
         EasyImage.configuration(this)
@@ -78,12 +79,12 @@ class RemoteMlActivity : AppCompatActivity() {
                         getLandmarkTask(bitmap).addOnCompleteListener { task ->
                             resultText += processLandmarksResult(task)
                             response.text = resultText
-                        }.continueWithTask { _ ->
+                        }.continueWithTask {
                             getLabelingTask(bitmap).addOnCompleteListener { task ->
                                 resultText += processLabelingResult(task)
                                 response.text = resultText
                             }
-                        }.continueWithTask { _ ->
+                        }.continueWithTask {
                             getTextTask(bitmap).addOnCompleteListener { task ->
                                 resultText += processTextResult(task)
                                 response.text = resultText
@@ -111,7 +112,7 @@ class RemoteMlActivity : AppCompatActivity() {
         }
     }
 
-    private fun processTextResult(task: Task<FirebaseVisionCloudText>): String {
+    private fun processTextResult(task: Task<FirebaseVisionText>): String {
         var result = ""
         val visionText = task.result
         val recognizedText = visionText?.text ?: ""
@@ -124,26 +125,28 @@ class RemoteMlActivity : AppCompatActivity() {
 
     private fun processLabelingResult(task: Task<List<FirebaseVisionCloudLabel>>): String {
         var result = ""
-        val labels = task.result
-        if (labels.isNotEmpty()) {
-            result += "Labels: "
-            labels.forEach { label ->
-                result += "[${label.label}] "
+        task.result?.let { labels ->
+            if (labels.isNotEmpty()) {
+                result += "Labels: "
+                labels.forEach { label ->
+                    result += "[${label.label}] "
+                }
+                result += "\n"
             }
-            result += "\n"
         }
         return result
     }
 
     private fun processLandmarksResult(task: Task<List<FirebaseVisionCloudLandmark>>): String {
         var result = ""
-        val landmarks = task.result
-        if (landmarks.isNotEmpty()) {
-            result += "Landmark detection: "
-            landmarks.forEach { landmark ->
-                result += "[${landmark.landmark}] "
+        task.result?.let { landmarks ->
+            if (landmarks.isNotEmpty()) {
+                result += "Landmark detection: "
+                landmarks.forEach { landmark ->
+                    result += "[${landmark.landmark}] "
+                }
+                result += "\n"
             }
-            result += "\n"
         }
         return result
     }
@@ -178,14 +181,13 @@ class RemoteMlActivity : AppCompatActivity() {
         }
     }
 
-    private fun getTextTask(bitmap: Bitmap): Task<FirebaseVisionCloudText> {
-        val options = FirebaseVisionCloudDetectorOptions.Builder()
+    private fun getTextTask(bitmap: Bitmap): Task<FirebaseVisionText> {
+        val options = FirebaseVisionCloudTextRecognizerOptions.Builder()
                 .setModelType(FirebaseVisionCloudDetectorOptions.LATEST_MODEL)
-                .setMaxResults(15)
                 .build()
         val image = FirebaseVisionImage.fromBitmap(bitmap)
-        val detector = FirebaseVision.getInstance().getVisionCloudTextDetector(options)
-        return detector.detectInImage(image).addOnSuccessListener { text ->
+        val detector = FirebaseVision.getInstance().getCloudTextRecognizer(options)
+        return detector.processImage(image).addOnSuccessListener { text ->
             Timber.d("SUCCESS and text: ${text?.text}")
         }.addOnFailureListener { exception ->
             Timber.e("FAILED ${exception.localizedMessage}")

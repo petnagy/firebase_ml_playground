@@ -30,7 +30,7 @@ class FaceDetectActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.face_detect_layout)
 
-        takePhoto.setOnClickListener { _ -> checkAndLaunchCamera() }
+        takePhoto.setOnClickListener { checkAndLaunchCamera() }
 
         EasyImage.clearConfiguration(this)
         EasyImage.configuration(this)
@@ -91,11 +91,11 @@ class FaceDetectActivity : AppCompatActivity() {
 
     private fun getFaceTask(bitmap: Bitmap): Task<List<FirebaseVisionFace>> {
         val options = FirebaseVisionFaceDetectorOptions.Builder()
-                .setModeType(FirebaseVisionFaceDetectorOptions.ACCURATE_MODE)
-                .setLandmarkType(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
-                .setClassificationType(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
+                .setPerformanceMode(FirebaseVisionFaceDetectorOptions.ACCURATE)
+                .setLandmarkMode(FirebaseVisionFaceDetectorOptions.ALL_LANDMARKS)
+                .setClassificationMode(FirebaseVisionFaceDetectorOptions.ALL_CLASSIFICATIONS)
                 .setMinFaceSize(0.15f)
-                .setTrackingEnabled(false)
+                .enableTracking()
                 .build()
         val firebaseVisionImage = FirebaseVisionImage.fromBitmap(bitmap)
         val detector = FirebaseVision.getInstance().getVisionFaceDetector(options)

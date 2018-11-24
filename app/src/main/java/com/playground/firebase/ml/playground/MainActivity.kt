@@ -12,10 +12,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        remote.setOnClickListener { _ -> startFirebaseRemoteMl() }
-        local.setOnClickListener { _ -> startFirebaseLocalMl() }
-        face_detect.setOnClickListener { _ -> startFaceDetect() }
-        text_detection.setOnClickListener { _ -> startTextDetect() }
+        remote.setOnClickListener { startFirebaseRemoteMl() }
+        local.setOnClickListener { startFirebaseLocalMl() }
+        face_detect.setOnClickListener { startFaceDetect() }
+        text_detection.setOnClickListener { startTextDetect() }
         //camera.setOnClickListener {_ -> startLiveCamera()}
         //camera2.setOnClickListener {_ -> startLiveCamera2()}
     }

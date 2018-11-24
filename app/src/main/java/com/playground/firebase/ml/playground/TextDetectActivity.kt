@@ -15,10 +15,6 @@ import android.view.View
 import com.google.android.gms.tasks.Task
 import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
-import com.google.firebase.ml.vision.face.FirebaseVisionFace
-import com.google.firebase.ml.vision.face.FirebaseVisionFaceDetectorOptions
-import com.google.firebase.ml.vision.label.FirebaseVisionLabel
-import com.google.firebase.ml.vision.label.FirebaseVisionLabelDetectorOptions
 import com.google.firebase.ml.vision.text.FirebaseVisionText
 import kotlinx.android.synthetic.main.base_layout.*
 import pl.aprilapps.easyphotopicker.DefaultCallback
@@ -36,7 +32,7 @@ class TextDetectActivity: AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.face_detect_layout)
 
-        takePhoto.setOnClickListener { _ -> checkAndLaunchCamera() }
+        takePhoto.setOnClickListener { checkAndLaunchCamera() }
 
         EasyImage.clearConfiguration(this)
         EasyImage.configuration(this)
@@ -97,9 +93,9 @@ class TextDetectActivity: AppCompatActivity() {
 
     private fun getTextTask(bitmap: Bitmap): Task<FirebaseVisionText> {
         val visionImage = FirebaseVisionImage.fromBitmap(bitmap)
-        val detector = FirebaseVision.getInstance().visionTextDetector
-        return detector.detectInImage(visionImage).addOnSuccessListener { text ->
-            val recognizedText = text.blocks.joinToString { block -> block.text }
+        val detector = FirebaseVision.getInstance().onDeviceTextRecognizer
+        return detector.processImage(visionImage).addOnSuccessListener { text ->
+            val recognizedText = text.textBlocks.joinToString { block -> block.text }
             Timber.d("SUCCESS and text: $recognizedText")
 
             val paint = Paint()
@@ -110,8 +106,10 @@ class TextDetectActivity: AppCompatActivity() {
             val tempCanvas = Canvas(tempBitmap)
             tempCanvas.drawBitmap(bitmap, 0.0F, 0.0F, Paint())
 
-            text.blocks.forEach { block ->
-                tempCanvas.drawRect(block.boundingBox, paint)
+            text.textBlocks.forEach { block ->
+                block.boundingBox?.let { boundingBox ->
+                    tempCanvas.drawRect(boundingBox, paint)
+                }
             }
 
             image.setImageBitmap(tempBitmap)
